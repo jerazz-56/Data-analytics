@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Sales & Revenue Analytics Dashboard | Interactive Insight Engine</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- PapaParse for CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- SheetJS (XLSX) for Excel files -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background: #f0f2f5;
+            padding: 24px 20px;
+            transition: background 0.2s;
+        }
+
+        /* Dark/Light toggle wrapper */
+        .theme-toggle {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 20px;
+        }
+        .theme-btn {
+            background: #fff;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            transition: all 0.2s;
+        }
+        body.dark {
+            background: #121212;
+            color: #eef2ff;
+        }
+        body.dark .dashboard-container,
+        body.dark .card,
+        body.dark .filter-panel,
+        body.dark .insight-card,
+        body.dark .theme-btn {
+            background: #1e2a3a;
+            color: #eef2ff;
+            border-color: #2d3e50;
+        }
+        body.dark .card h3, body.dark .insight-card h4 {
+            color: #cbd5e6;
+        }
+        body.dark .filter-panel select, 
+        body.dark .filter-panel input {
+            background: #0f1a24;
+            color: white;
+            border: 1px solid #2c3e44;
+        }
+
+        .dashboard-container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .dashboard-header {
+            margin-bottom: 28px;
+        }
+        .dashboard-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1f4870, #2a7f6e);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        body.dark .dashboard-header h1 {
+            background: linear-gradient(135deg, #6ab0de, #5cb8a4);
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+        .upload-area {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+            align-items: center;
+        }
+        .upload-btn {
+            background: #2c5f8a;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        .upload-btn:hover {
+            background: #1e4463;
+            transform: translateY(-2px);
+        }
+        .file-info {
+            font-size: 0.85rem;
+            color: #4a627a;
+        }
+        body.dark .file-info {
+            color: #a0bbd0;
+        }
+
+        /* KPI Grid */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 22px;
+            margin-bottom: 32px;
+        }
+        .card {
+            background: white;
+            border-radius: 28px;
+            padding: 1.2rem 1.5rem;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.07);
+            transition: all 0.25s ease;
+            backdrop-filter: blur(0px);
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 30px rgba(0,0,0,0.1);
+        }
+        .card-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            color: #5f7f9e;
+        }
+        .card-value {
+            font-size: 2.3rem;
+            font-weight: 800;
+            margin-top: 8px;
+            word-break: break-word;
+        }
+        .card-sub {
+            font-size: 0.75rem;
+            color: #3d6b4b;
+            margin-top: 8px;
+        }
+
+        /* Filters panel */
+        .filter-panel {
+            background: white;
+            border-radius: 28px;
+            padding: 18px 24px;
+            margin-bottom: 32px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: flex-end;
+            box-shadow: 0 6px 14px rgba(0,0,0,0.05);
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 150px;
+        }
+        .filter-group label {
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+        select, input {
+            padding: 8px 14px;
+            border-radius: 40px;
+            border: 1px solid #ccdbe8;
+            background: #fefefe;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        .reset-filters {
+            background: #e9ecf0;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        /* Chart grids */
+        .chart-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 28px;
+            margin-bottom: 32px;
+        }
+        .chart-card {
+            background: white;
+            border-radius: 28px;
+            padding: 1.2rem;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+            transition: 0.2s;
+        }
+        .chart-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 12px;
+            font-weight: 600;
+            border-left: 5px solid #2a7f6e;
+            padding-left: 12px;
+        }
+        canvas {
+            max-height: 280px;
+            width: 100%;
+        }
+        .insight-card {
+            background: white;
+            border-radius: 28px;
+            padding: 1.3rem 1.8rem;
+            margin-top: 10px;
+            box-shadow: 0 10px 22px rgba(0,0,0,0.05);
+        }
+        .insight-card h4 {
+            font-size: 1.3rem;
+            margin-bottom: 14px;
+        }
+        .insight-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: space-between;
+        }
+        .insight-item {
+            background: #eff3f8;
+            padding: 10px 18px;
+            border-radius: 60px;
+            font-weight: 500;
+        }
+        body.dark .insight-item {
+            background: #2c3e44;
+        }
+        footer {
+            font-size: 0.7rem;
+            text-align: center;
+            margin-top: 30px;
+            opacity: 0.6;
+        }
+        @media (max-width: 760px) {
+            .chart-row {
+                grid-template-columns: 1fr;
+            }
+            .kpi-grid {
+                gap: 12px;
+            }
+            .card-value {
+                font-size: 1.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="dashboard-container">
+    <div class="theme-toggle">
+        <button class="theme-btn" id="darkModeToggle">🌓 Dark/Light Mode</button>
+    </div>
+    <div class="dashboard-header">
+        <h1>📊 Sales & Revenue Analysis Dashboard</h1>
+        <div class="upload-area">
+            <label for="csvUpload" class="upload-btn">📂 Upload CSV</label>
+            <input type="file" id="csvUpload" accept=".csv" style="display:none" />
+            <label for="excelUpload" class="upload-btn">📁 Upload Excel (.xlsx)</label>
+            <input type="file" id="excelUpload" accept=".xlsx, .xls" style="display:none" />
+            <span class="file-info" id="fileStatus">⬆️ Upload sales dataset (CSV/XLSX) with columns: Order_Date, Product, Category, Region, Sales, Revenue, Profit (optional) or Total_Sales, Revenue, Orders</span>
+        </div>
+    </div>
+
+    <!-- KPI Section -->
+    <div class="kpi-grid" id="kpiContainer">
+        <div class="card"><div class="card-title">💰 Total Sales</div><div class="card-value" id="totalSales">—</div></div>
+        <div class="card"><div class="card-title">📈 Total Revenue</div><div class="card-value" id="totalRevenue">—</div></div>
+        <div class="card"><div class="card-title">📦 Total Orders</div><div class="card-value" id="totalOrders">—</div></div>
+        <div class="card"><div class="card-title">⭐ Avg Revenue per Order</div><div class="card-value" id="avgRevenue">—</div></div>
+        <div class="card"><div class="card-title">📊 Profit Margin %</div><div class="card-value" id="profitMargin">—</div></div>
+    </div>
+
+    <!-- Filters Panel -->
+    <div class="filter-panel" id="filterPanel">
+        <div class="filter-group"><label>📅 Date Range</label><input type="text" id="dateFilter" placeholder="YYYY-MM-DD (optional)"></div>
+        <div class="filter-group"><label>🏷️ Product</label><select id="productFilter"><option value="all">All Products</option></select></div>
+        <div class="filter-group"><label>📂 Category</label><select id="categoryFilter"><option value="all">All Categories</option></select></div>
+        <div class="filter-group"><label>🌍 Region</label><select id="regionFilter"><option value="all">All Regions</option></select></div>
+        <button class="reset-filters" id="resetFiltersBtn">Reset Filters</button>
+    </div>
+
+    <!-- Chart Row 1: Revenue Trend -->
+    <div class="chart-row">
+        <div class="chart-card"><h3>📅 Revenue Trend (Line)</h3><canvas id="revenueTrendChart" width="400" height="250"></canvas></div>
+        <div class="chart-card"><h3>🏆 Top Products (Sales)</h3><canvas id="topProductsChart" width="400" height="250"></canvas></div>
+    </div>
+    <!-- Chart Row 2: Category Revenue + Region Sales -->
+    <div class="chart-row">
+        <div class="chart-card"><h3>🥧 Revenue by Category</h3><canvas id="categoryPieChart" width="400" height="250"></canvas></div>
+        <div class="chart-card"><h3>🗺️ Sales by Region</h3><canvas id="regionBarChart" width="400" height="250"></canvas></div>
+    </div>
+    <!-- Profit Margin by Category -->
+    <div class="chart-row">
+        <div class="chart-card"><h3>📊 Profit Margin by Category</h3><canvas id="profitMarginBarChart" width="400" height="250"></canvas></div>
+        <div class="chart-card"><h3>💡 Business Insights</h3><div id="insightsText" style="padding: 8px; font-weight:500;"></div></div>
+    </div>
+    <footer>Upload CSV/XLSX file → Auto-update all KPIs, charts, filters, and insights. Ensure columns: Order_Date, Product, Category, Region, Sales, Revenue, Orders (or Total_Sales, Revenue). Profit margin = (Revenue / Sales)*100.</footer>
+</div>
+
+<script>
+    // ======================== GLOBAL DATA & CHARTS ========================
+    let rawData = [];        // stores original rows after parsing
+    let filteredData = [];
+    
+    // Chart instances
+    let revenueChart, topProductChart, categoryPieChart, regionBarChart, profitMarginChart;
+
+    // Required columns mapping: we expect: Order_Date, Product, Category, Region, Sales, Revenue, Orders (Orders optional)
+    // Alternative naming support
+    function normalizeRow(row) {
+        const keys = Object.keys(row).map(k => k.trim().toLowerCase());
+        const getVal = (possibleNames) => {
+            for(let p of possibleNames) {
+                const foundKey = Object.keys(row).find(k => k.trim().toLowerCase() === p.toLowerCase());
+                if(foundKey) return row[foundKey];
+            }
+            return null;
+        };
+        const orderDate = getVal(['order_date', 'date', 'orderdate']);
+        const product = getVal(['product', 'product_name']);
+        const category = getVal(['category', 'product_category']);
+        const region = getVal(['region', 'sales_region']);
+        let sales = parseFloat(getVal(['sales', 'total_sales', 'sales_amount']));
+        let revenue = parseFloat(getVal(['revenue', 'total_revenue']));
+        let ordersRaw = getVal(['orders', 'order_count', 'num_orders']);
+        let orders = ordersRaw ? parseFloat(ordersRaw) : 1;   // fallback to 1 if no orders column
+
+        if(isNaN(sales)) sales = 0;
+        if(isNaN(revenue)) revenue = 0;
+        if(isNaN(orders)) orders = 1;
+        
+        return { orderDate, product, category, region, sales, revenue, orders };
+    }
+
+    // Process raw uploaded data
+    function processData(parsedRows) {
+        let processed = [];
+        for(let row of parsedRows) {
+            const norm = normalizeRow(row);
+            if(norm.product && norm.category && norm.region && norm.orderDate) {
+                processed.push({
+                    date: norm.orderDate,
+                    product: String(norm.product).trim(),
+                    category: String(norm.category).trim(),
+                    region: String(norm.region).trim(),
+                    sales: norm.sales,
+                    revenue: norm.revenue,
+                    orders: norm.orders
+                });
+            }
+        }
+        if(processed.length === 0) {
+            alert("No valid rows found. Required at least: Order_Date, Product, Category, Region, Sales, Revenue columns.");
+            return false;
+        }
+        rawData = processed;
+        applyFiltersAndRefresh();
+        return true;
+    }
+
+    // ==================== FILTER LOGIC ====================
+    function applyFiltersAndRefresh() {
+        const dateSearch = document.getElementById('dateFilter').value.trim().toLowerCase();
+        const productVal = document.getElementById('productFilter').value;
+        const categoryVal = document.getElementById('categoryFilter').value;
+        const regionVal = document.getElementById('regionFilter').value;
+
+        filteredData = rawData.filter(item => {
+            if(productVal !== 'all' && item.product !== productVal) return false;
+            if(categoryVal !== 'all' && item.category !== categoryVal) return false;
+            if(regionVal !== 'all' && item.region !== regionVal) return false;
+            if(dateSearch) {
+                let itemDateStr = String(item.date).toLowerCase();
+                if(!itemDateStr.includes(dateSearch)) return false;
+            }
+            return true;
+        });
+        updateKPIsAndCharts();
+        updateFilterDropdowns(); 
+        generateInsights();
+    }
+
+    // Update dropdown unique values based on raw data (not filtered)
+    function updateFilterDropdowns() {
+        if(!rawData.length) return;
+        const products = [...new Set(rawData.map(d => d.product))].sort();
+        const categories = [...new Set(rawData.map(d => d.category))].sort();
+        const regions = [...new Set(rawData.map(d => d.region))].sort();
+        populateSelect('productFilter', products);
+        populateSelect('categoryFilter', categories);
+        populateSelect('regionFilter', regions);
+    }
+
+    function populateSelect(id, values) {
+        const select = document.getElementById(id);
+        let currentVal = select.value;
+        select.innerHTML = '<option value="all">All</option>';
+        values.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v;
+            select.appendChild(opt);
+        });
+        if(currentVal && values.includes(currentVal)) select.value = currentVal;
+        else select.value = 'all';
+    }
+
+    // =============== KPI & CHARTS UPDATE ===============
+    function updateKPIsAndCharts() {
+        if(!filteredData.length) {
+            document.getElementById('totalSales').innerText = '0';
+            document.getElementById('totalRevenue').innerText = '0';
+            document.getElementById('totalOrders').innerText = '0';
+            document.getElementById('avgRevenue').innerText = '0';
+            document.getElementById('profitMargin').innerText = '0%';
+            clearCharts();
+            return;
+        }
+        let totalSales = 0, totalRevenue = 0, totalOrders = 0;
+        filteredData.forEach(d => { totalSales += d.sales; totalRevenue += d.revenue; totalOrders += d.orders; });
+        const avgRevenue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+        const profitMarginPercent = totalSales > 0 ? (totalRevenue / totalSales) * 100 : 0;
+        
+        document.getElementById('totalSales').innerText = formatCurrency(totalSales);
+        document.getElementById('totalRevenue').innerText = formatCurrency(totalRevenue);
+        document.getElementById('totalOrders').innerText = totalOrders.toFixed(0);
+        document.getElementById('avgRevenue').innerText = formatCurrency(avgRevenue);
+        document.getElementById('profitMargin').innerText = profitMarginPercent.toFixed(2) + '%';
+        
+        updateRevenueTrend();
+        updateTopProducts();
+        updateCategoryPie();
+        updateRegionBar();
+        updateProfitMarginByCategory();
+    }
+    
+    function formatCurrency(value) { return '$' + value.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}); }
+    
+    // Revenue Trend: group by date (order_date)
+    function updateRevenueTrend() {
+        const dateMap = new Map();
+        filteredData.forEach(item => {
+            let dt = item.date;
+            if(!dateMap.has(dt)) dateMap.set(dt, 0);
+            dateMap.set(dt, dateMap.get(dt) + item.revenue);
+        });
+        const sortedDates = Array.from(dateMap.keys()).sort((a,b)=>new Date(a)-new Date(b));
+        const revenues = sortedDates.map(d => dateMap.get(d));
+        if(revenueChart) revenueChart.destroy();
+        const ctx = document.getElementById('revenueTrendChart').getContext('2d');
+        revenueChart = new Chart(ctx, {
+            type: 'line', data: { labels: sortedDates, datasets: [{ label: 'Revenue ($)', data: revenues, borderColor: '#2a7f6e', tension: 0.2, fill: false }] },
+            options: { responsive: true, maintainAspectRatio: true }
+        });
+    }
+    
+    // Top products by sales (bar)
+    function updateTopProducts() {
+        const prodSales = new Map();
+        filteredData.forEach(d => { prodSales.set(d.product, (prodSales.get(d.product)||0) + d.sales); });
+        const sorted = Array.from(prodSales.entries()).sort((a,b)=>b[1]-a[1]).slice(0,6);
+        if(topProductChart) topProductChart.destroy();
+        const ctx = document.getElementById('topProductsChart').getContext('2d');
+        topProductChart = new Chart(ctx, {
+            type: 'bar', data: { labels: sorted.map(p=>p[0]), datasets: [{ label: 'Total Sales ($)', data: sorted.map(p=>p[1]), backgroundColor: '#4f7eb3' }] },
+            options: { responsive: true }
+        });
+    }
+    
+    // Revenue by Category (Pie)
+    function updateCategoryPie() {
+        const catRevenue = new Map();
+        filteredData.forEach(d => { catRevenue.set(d.category, (catRevenue.get(d.category)||0) + d.revenue); });
+        if(categoryPieChart) categoryPieChart.destroy();
+        const ctx = document.getElementById('categoryPieChart').getContext('2d');
+        categoryPieChart = new Chart(ctx, {
+            type: 'pie', data: { labels: Array.from(catRevenue.keys()), datasets: [{ data: Array.from(catRevenue.values()), backgroundColor: ['#2c5f8a','#479f8c','#d9822b','#b56576','#6c91b2'] }] },
+            options: { responsive: true }
+        });
+    }
+    
+    // Sales by Region (Bar)
+    function updateRegionBar() {
+        const regionSales = new Map();
+        filteredData.forEach(d => { regionSales.set(d.region, (regionSales.get(d.region)||0) + d.sales); });
+        if(regionBarChart) regionBarChart.destroy();
+        const ctx = document.getElementById('regionBarChart').getContext('2d');
+        regionBarChart = new Chart(ctx, {
+            type: 'bar', data: { labels: Array.from(regionSales.keys()), datasets: [{ label: 'Sales ($)', data: Array.from(regionSales.values()), backgroundColor: '#518dca' }] },
+            options: { responsive: true }
+        });
+    }
+    
+    // Profit Margin % by Category: margin = (Revenue / Sales)*100 per category
+    function updateProfitMarginByCategory() {
+        const catSales = new Map(), catRevenue = new Map();
+        filteredData.forEach(d => { catSales.set(d.category, (catSales.get(d.category)||0) + d.sales); catRevenue.set(d.category, (catRevenue.get(d.category)||0) + d.revenue); });
+        const categories = Array.from(catSales.keys());
+        const margins = categories.map(cat => catSales.get(cat) > 0 ? (catRevenue.get(cat)/catSales.get(cat))*100 : 0);
+        if(profitMarginChart) profitMarginChart.destroy();
+        const ctx = document.getElementById('profitMarginBarChart').getContext('2d');
+        profitMarginChart = new Chart(ctx, {
+            type: 'bar', data: { labels: categories, datasets: [{ label: 'Profit Margin (%)', data: margins, backgroundColor: '#478f7c' }] },
+            options: { responsive: true, scales: { y: { title: { display: true, text: 'Margin (%)' } } } }
+        });
+    }
+    
+    function clearCharts() {
+        if(revenueChart) revenueChart.destroy();
+        if(topProductChart) topProductChart.destroy();
+        if(categoryPieChart) categoryPieChart.destroy();
+        if(regionBarChart) regionBarChart.destroy();
+        if(profitMarginChart) profitMarginChart.destroy();
+    }
+    
+    // ================ BUSINESS INSIGHTS ==================
+    function generateInsights() {
+        if(!filteredData.length) { document.getElementById('insightsText').innerHTML = '⬆️ Upload data to see insights.'; return; }
+        // 1. Highest revenue category
+        const catRevenue = new Map();
+        filteredData.forEach(d => catRevenue.set(d.category, (catRevenue.get(d.category)||0)+d.revenue));
+        let topCat = '', maxRev = -1;
+        for(let [c, r] of catRevenue.entries()) if(r>maxRev) { maxRev=r; topCat=c; }
+        // 2. Best selling product by sales
+        const prodSales = new Map();
+        filteredData.forEach(d => prodSales.set(d.product, (prodSales.get(d.product)||0)+d.sales));
+        let topProd = '', maxSales = -1;
+        for(let [p, s] of prodSales.entries()) if(s>maxSales) { maxSales=s; topProd=p; }
+        // 3. Top region by sales
+        const regionSales = new Map();
+        filteredData.forEach(d => regionSales.set(d.region, (regionSales.get(d.region)||0)+d.sales));
+        let topRegion = '', maxRegSales = -1;
+        for(let [r, s] of regionSales.entries()) if(s>maxRegSales) { maxRegSales=s; topRegion=r; }
+        // 4. profit margin analysis: overall margin (Revenue/Sales)*100
+        let totalSales = 0, totalRevenue = 0;
+        filteredData.forEach(d => { totalSales+=d.sales; totalRevenue+=d.revenue; });
+        const overallMargin = totalSales>0 ? (totalRevenue/totalSales)*100 : 0;
+        let marginComment = overallMargin > 30 ? '🚀 High Profitability' : (overallMargin > 15 ? '✅ Moderate Margin' : '⚠️ Low Margin Opportunity');
+        
+        const insightsHtml = `<div class="insight-list">
+            <div class="insight-item">🏆 Top Category: ${topCat} ($${maxRev.toFixed(0)})</div>
+            <div class="insight-item">⭐ Best Product: ${topProd} ($${maxSales.toFixed(0)} sales)</div>
+            <div class="insight-item">🌎 Top Region: ${topRegion} ($${maxRegSales.toFixed(0)})</div>
+            <div class="insight-item">📊 Profit Margin: ${overallMargin.toFixed(1)}% ${marginComment}</div>
+        </div><div style="margin-top:12px;">💡 Recommendation: Focus on ${topCat} category & expand in ${topRegion} region. Boost ${topProd} campaign.</div>`;
+        document.getElementById('insightsText').innerHTML = insightsHtml;
+    }
+    
+    // ================ FILE HANDLERS (CSV + EXCEL) ================
+    function handleCSV(file) {
+        Papa.parse(file, { header: true, dynamicTyping: true, complete: function(results) {
+            if(results.data && results.data.length) processData(results.data);
+            else alert("CSV parsing error or empty");
+        }, error: function(err) { alert("CSV error: "+err); } });
+    }
+    function handleExcel(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(firstSheet);
+            if(rows.length) processData(rows);
+            else alert("Excel sheet empty");
+        };
+        reader.readAsArrayBuffer(file);
+    }
+    
+    // Event listeners
+    document.getElementById('csvUpload').addEventListener('change', (e) => { if(e.target.files.length) handleCSV(e.target.files[0]); document.getElementById('fileStatus').innerText = '✅ CSV loaded'; });
+    document.getElementById('excelUpload').addEventListener('change', (e) => { if(e.target.files.length) handleExcel(e.target.files[0]); document.getElementById('fileStatus').innerText = '✅ Excel loaded'; });
+    document.getElementById('productFilter').addEventListener('change', applyFiltersAndRefresh);
+    document.getElementById('categoryFilter').addEventListener('change', applyFiltersAndRefresh);
+    document.getElementById('regionFilter').addEventListener('change', applyFiltersAndRefresh);
+    document.getElementById('dateFilter').addEventListener('input', applyFiltersAndRefresh);
+    document.getElementById('resetFiltersBtn').addEventListener('click', () => {
+        document.getElementById('dateFilter').value = '';
+        document.getElementById('productFilter').value = 'all';
+        document.getElementById('categoryFilter').value = 'all';
+        document.getElementById('regionFilter').value = 'all';
+        applyFiltersAndRefresh();
+    });
+    
+    // Dark mode toggle
+    const darkBtn = document.getElementById('darkModeToggle');
+    darkBtn.addEventListener('click', () => {
+        document.body.classList.toggle('dark');
+    });
+    
+    // Sample data loader: provide dummy dataset if user wants demo
+    function loadSampleData() {
+        const sampleRows = [
+            { Order_Date: "2024-01-15", Product: "Laptop Pro", Category: "Electronics", Region: "North", Sales: 25000, Revenue: 32000, Orders: 12 },
+            { Order_Date: "2024-02-10", Product: "Smartphone X", Category: "Electronics", Region: "South", Sales: 18000, Revenue: 22500, Orders: 20 },
+            { Order_Date: "2024-01-22", Product: "Office Chair", Category: "Furniture", Region: "East", Sales: 7500, Revenue: 8800, Orders: 15 },
+            { Order_Date: "2024-03-05", Product: "Desk Lamp", Category: "Furniture", Region: "West", Sales: 3200, Revenue: 4100, Orders: 9 },
+            { Order_Date: "2024-02-18", Product: "Wireless Mouse", Category: "Accessories", Region: "North", Sales: 4900, Revenue: 6200, Orders: 35 },
+            { Order_Date: "2024-03-20", Product: "Laptop Pro", Category: "Electronics", Region: "South", Sales: 19000, Revenue: 24200, Orders: 8 },
+            { Order_Date: "2024-01-30", Product: "Office Desk", Category: "Furniture", Region: "East", Sales: 11000, Revenue: 13400, Orders: 6 },
+            { Order_Date: "2024-02-25", Product: "Headphones", Category: "Accessories", Region: "West", Sales: 5600, Revenue: 6900, Orders: 22 }
+        ];
+        processData(sampleRows);
+        document.getElementById('fileStatus').innerHTML = '📋 Sample dataset loaded (demo)';
+    }
+    
+    // optional: if user clicks somewhere to load sample? we can call on window load for immediate demo, but let's provide manual hint?
+    // Better: provide a sample load button dynamically? we can add a hidden trigger but for convenience, call after 300ms if no data?
+    setTimeout(() => { if(rawData.length===0) loadSampleData(); }, 300);
+</script>
+</body>
+</html>
